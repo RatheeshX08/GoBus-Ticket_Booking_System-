@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoBus - Bus Ticket Booking</title>
+  <link rel="stylesheet" href="style.css?v=3">
+  <script src="auth.js?v=4"></script>
+  <script>GoBusAuth.requireAuth();</script>
+</head>
+<body>
+  <!-- Header / Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <span class="brand-badge">🚌</span>
+        <span class="brand-name">GoBus</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#search-section">Search</a>
+        <a href="#operators-section">Operators</a>
+        <a href="#seats-section">Seat Map</a>
+      </nav>
+      <div class="nav-account">
+        <span id="user-greeting" class="user-greeting"></span>
+        <button class="my-bookings-btn" onclick="openMyBookings()">
+          🎟️ My Bookings (<span id="booking-badge">0</span>)
+        </button>
+        <button class="nav-logout-btn" id="logout-btn" type="button">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Hero Banner -->
+    <header class="hero">
+      <h1>Bus ticket booking</h1>
+      <p>Fast, safe and easy intercity bus booking across India</p>
+    </header>
+    <div id="api-status" class="api-status" role="status" hidden></div>
+
+    <!-- Search Card -->
+    <section id="search-section" class="search-card" aria-label="Search buses">
+      <form id="search-form" onsubmit="handleSearch(event)">
+        <div class="search-fields">
+          <div class="field">
+            <label for="from">From</label>
+            <div class="value">
+              <select id="from">
+                <option value="Koyambedu (Chennai)" selected>Koyambedu (Chennai)</option>
+                <option value="Coimbatore">Coimbatore</option>
+                <option value="Bangalore">Bangalore</option>
+                <option value="Madurai">Madurai</option>
+                <option value="Salem">Salem</option>
+                <option value="Kochi">Kochi</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="swap-btn" type="button" aria-label="Swap origin and destination" onclick="swapCities()">
+            ⇄
+          </button>
+
+          <div class="field">
+            <label for="to">To</label>
+            <div class="value">
+              <select id="to">
+                <option value="Coimbatore" selected>Coimbatore</option>
+                <option value="Koyambedu (Chennai)">Koyambedu (Chennai)</option>
+                <option value="Bangalore">Bangalore</option>
+                <option value="Madurai">Madurai</option>
+                <option value="Salem">Salem</option>
+                <option value="Kochi">Kochi</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="date">Date of journey</label>
+            <div class="value">
+              <input id="date" type="date" value="2026-10-24"> 
+              <small id="date-label">(Today)</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="search-footer">
+          <div class="chips">
+            <button class="chip active" id="chip-today" type="button" onclick="setDate('2026-10-24', 'today')">Today</button>
+            <button class="chip" id="chip-tomorrow" type="button" onclick="setDate('2026-10-25', 'tomorrow')">Tomorrow</button>
+          </div>
+          <button class="btn-primary" type="submit">
+            🔍 Search buses
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Summary Stats -->
+    <section class="stats" aria-label="Summary">
+      <div class="stat">
+        <span>Buses found</span>
+        <strong id="buses-found">4</strong>
+      </div>
+      <div class="stat">
+        <span>Seats left (selected bus)</span>
+        <strong id="seats-left">18</strong>
+      </div>
+      <div class="stat">
+        <span>Lowest fare</span>
+        <strong id="lowest-fare">₹0</strong>
+      </div>
+    </section>
+
+    <!-- Bus Results Panel -->
+    <section id="operators-section" class="panel">
+      <div class="results-head">
+        <h2>Available buses found</h2>
+        <div class="sort" role="group" aria-label="Sort by">
+          <span style="font-weight:500;color:var(--text-primary);">Sort by:</span>
+          <button type="button" class="sort-btn" onclick="sortBy('rating')">Ratings</button>
+          <button type="button" class="sort-btn" onclick="sortBy('departure')">Departure time</button>
+          <button type="button" class="sort-btn active" onclick="sortBy('price')">Price</button>
+        </div>
+      </div>
+      <div class="promo-band">✨ 3.6+ lakh bus routes on platform · Verified Operators</div>
+
+      <!-- Bus list container rendered dynamically by app.js -->
+      <div id="bus-list" class="bus-list"></div>
+    </section>
+
+    <!-- Seat Map & Fare Breakdown -->
+    <section id="seats-section" class="lower-grid">
+      <div class="seat-map">
+        <div class="seat-head">
+          <div>
+            <h3 id="seat-map-title">Seat Layout: THAMARAI BUS TRANSPORTS</h3>
+            <p>Select sleeper berths from Lower or Upper deck</p>
+          </div>
+          <span class="steering-tag">Steering 💺 Driver Front</span>
+        </div>
+
+        <div class="decks">
+          <div class="deck">
+            <h4>Lower deck</h4>
+            <div id="lower-seats" class="seat-grid"></div>
+          </div>
+          <div class="deck">
+            <h4>Upper deck</h4>
+            <div id="upper-seats" class="seat-grid"></div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><span class="box available"></span> Available</span>
+          <span><span class="box sold"></span> Sold</span>
+          <span><span class="box selected"></span> Selected</span>
+        </div>
+      </div>
+
+      <!-- Fare Summary Aside -->
+      <aside class="fare">
+        <div>
+          <div class="fare-note">Taxes (5% GST) included below</div>
+          <div class="fare-lines">
+            <div class="fare-line"><span>Selected Seats:</span> <strong id="lbl-seats">None</strong></div>
+            <div class="fare-line"><span>Base Fare:</span> <strong id="lbl-base">₹0</strong></div>
+            <div class="fare-line promo"><span>Promo Discount:</span> <strong>-₹100</strong></div>
+            <div class="fare-line"><span>GST (5%):</span> <strong id="lbl-gst">₹0</strong></div>
+          </div>
+        </div>
+
+        <div class="fare-total-block">
+          <div class="fare-total-row">
+            <div>
+              <span class="total-title">Total Payable</span>
+              <small id="total-sub">0 seats selected</small>
+            </div>
+            <span class="total-amount" id="lbl-total">₹0</span>
+          </div>
+          <button id="btn-continue" class="btn-primary full-width" type="button" disabled onclick="openCheckout()">
+            Continue booking
+          </button>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Checkout Modal -->
+  <div id="checkout-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Passenger & Contact Details</h3>
+        <button class="modal-close" onclick="closeCheckout()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-trip-chip" id="modal-summary"></div>
+        <form id="checkout-form" onsubmit="confirmBooking(event)">
+          <div class="form-group">
+            <label for="p-name">Full Name</label>
+            <input type="text" id="p-name" value="Ratheesh Kumar" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="p-age">Age</label>
+              <input type="number" id="p-age" value="24" min="1" max="120" required>
+            </div>
+            <div class="form-group">
+              <label for="p-gender">Gender</label>
+              <select id="p-gender">
+                <option value="Male" selected>Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="p-phone">Mobile Phone</label>
+              <input type="tel" id="p-phone" value="9876543210" required>
+            </div>
+            <div class="form-group">
+              <label for="p-email">Email Address</label>
+              <input type="email" id="p-email" value="ratheesh@example.com" required>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" onclick="closeCheckout()">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-confirm-submit">Confirm Booking</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- My Bookings Drawer -->
+  <div id="bookings-drawer" class="drawer-backdrop" style="display:none;" onclick="closeMyBookings(event)">
+    <div class="drawer" onclick="event.stopPropagation()">
+      <div class="drawer-header">
+        <h3>My Bookings</h3>
+        <button class="modal-close" onclick="closeMyBookings()">✕</button>
+      </div>
+      <div id="drawer-content" class="drawer-body"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-container">
+      <div>© 2026 GoBus Technologies. Fast, Safe & Easy Bus Booking across India.</div>
+      <div>24/7 Helpline: 1800-GOBUS</div>
+    </div>
+  </footer>
+
+  <script src="app.js?v=3"></script>
+</body>
+</html>
